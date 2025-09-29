@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Assign Shift{% endblock %}
+
+{% block content %}
+    <h2>{% if object %}Edit{% else %}Assign a New{% endif %} Shift</h2>
+    <hr>
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="btn btn-primary mt-3">Save Assignment</button>
+        <a href="{% url 'main_app:index' %}" class="btn btn-secondary mt-3">Cancel</a>
+    </form>
+{% endblock %}

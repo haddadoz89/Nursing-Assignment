@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load roster_extras %}
+
+{% block title %}Daily Assignment for {{ view_date|date:"F j, Y" }}{% endblock %}
+
+{% block content %}
+    <h2>Daily Assignment for {{ view_date|date:"l, F j, Y" }}</h2>
+    <p>Select a staff member from the dropdown for each role. Leave blank if unassigned.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 15%;">Assignment Type</th>
+                        <th style="width: 25%;">Task / Role</th>
+                        {% for shift_type in shift_types %}
+                            <th class="text-center">{{ shift_type.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in main_assignments %}
+                    <tr>
+                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ main_assignments|length }}">Main Assignments</td>{% endif %}
+                        <td>{{ assignment.name }}</td>
+                        {% for shift_type in shift_types %}
+                        <td>
+                            <select name="main_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                                <option value="">---------</option>
+                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.assignments.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tbody>
+                    {% for assignment in sub_assignments %}
+                    <tr>
+                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ sub_assignments|length }}">Sub-Assignments</td>{% endif %}
+                        <td>{{ assignment.name }}</td>
+                        {% for shift_type in shift_types %}
+                        <td>
+                            <select name="sub_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                                <option value="">---------</option>
+                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.sub_assignments.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tbody>
+                    {% for assignment in clinics %}
+                    <tr>
+                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ clinics|length }}">Clinics</td>{% endif %}
+                        <td>{{ assignment.name }}</td>
+                        {% for shift_type in shift_types %}
+                        <td>
+                            <select name="clinic_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                                <option value="">---------</option>
+                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.clinics.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tbody>
+                    {% for assignment in emergency_roles %}
+                    <tr>
+                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ emergency_roles|length }}">Emergency Roles</td>{% endif %}
+                        <td>{{ assignment.name }}</td>
+                        {% for shift_type in shift_types %}
+                        <td>
+                            <select name="emergency_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                                <option value="">---------</option>
+                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.emergency_roles.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Save All Assignments for This Day</button>
+        <a href="{% url 'main_app:daily_detail' view_date.year view_date.month view_date.day %}" class="btn btn-secondary mt-3">Cancel</a>
+    </form>
+{% endblock %}

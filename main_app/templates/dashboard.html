@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load roster_extras %}
+
+{% block title %}Monthly Roster{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>{{ month_name }} {{ year }}</h1>
+  <div class="btn-group">
+    <a href="{% url 'main_app:monthly_roster' previous_month.year previous_month.month %}"
+      class="btn btn-outline-secondary">&laquo; Previous</a>
+    <a href="{% url 'main_app:monthly_roster' next_month.year next_month.month %}"
+      class="btn btn-outline-secondary">Next &raquo;</a>
+  </div>
+</div>
+
+{% if request.user.role == 'MANAGER' %}
+<div class="mb-3">
+  <a href="{% url 'main_app:create_shift' %}" class="btn btn-success">+ Assign New Shift</a>
+  <a href="{% url 'main_app:create_user' %}" class="btn btn-info text-white">+ Add New Staff</a>
+</div>
+{% endif %}
+
+<div class="table-responsive">
+  <table class="table table-bordered table-striped table-hover">
+    <thead class="table-light">
+      <tr>
+        <th style="width: 15%;">Staff/Day</th>
+        {% for day in day_headers %}
+        <th class="text-center">
+          <a href="{% url 'main_app:daily_detail' year month day %}" class="text-decoration-none text-dark">
+            {{ day }}
+          </a>
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in roster_data %}
+      <tr>
+        <td class="fw-bold">
+          {% if request.user.role == 'MANAGER' %}
+          <a href="{% url 'main_app:create_shift_for_staff' row.staff.id %}" class="text-decoration-none">{{row.staff.get_full_name }}</a>
+          {% else %}
+          {{ row.staff.get_full_name }}
+          {% endif %}
+        </td>
+        {% for day in day_headers %}
+        <td>
+          {% for shift in row.days|get_item:day %}
+          <div class="d-flex justify-content-between align-items-center w-100">
+            <span>
+              <strong>{{ shift.shift_type.name }}:</strong>
+              {% for assignment in shift.assignments.all %}{{ assignment.name }}{% endfor %}
+              {% for clinic in shift.clinics.all %}{{ clinic.name }}{% endfor %}
+            </span>
+
+            {% if request.user.role == 'MANAGER' %}
+            <span>
+              <a href="{% url 'main_app:edit_shift' shift.id %}"
+                class="badge bg-warning text-dark text-decoration-none me-1">Edit</a>
+              <a href="{% url 'main_app:delete_shift' shift.id %}"
+                class="badge bg-danger text-white text-decoration-none">Delete</a>
+            </span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

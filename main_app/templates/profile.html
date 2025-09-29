@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<h2>My Profile</h2>
+<div class="card">
+  <div class="card-body">
+    <p><strong>Username:</strong> {{ profile_user.username }}</p>
+    <p><strong>Full Name:</strong> {{ profile_user.get_full_name }}</p>
+    <p><strong>Phone Number:</strong> {{ profile_user.phone_number }}</p>
+    <p><strong>Role:</strong> {{ profile_user.get_role_display }}</p>
+    <p><strong>Employee ID:</strong> {{ profile_user.employee_id }}</p>
+    <hr>
+    <a href="{% url 'main_app:profile_edit' %}" class="btn btn-primary">Edit Profile</a>
+    <a href="{% url 'main_app:password_change' %}" class="btn btn-secondary">Change Password</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Bulk Assign Rotations{% endblock %}
+
+{% block content %}
+    <h2>Bulk Assign Rotations</h2>
+    <p>Select a rotation, one or more employees, and a date range to automatically generate the schedule.</p>
+    <hr>
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="btn btn-primary mt-3">Generate Schedule</button>
+    </form>
+{% endblock %}

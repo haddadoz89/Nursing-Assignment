@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Delete{% endblock %}
+
+{% block content %}
+    <div class="alert alert-danger">
+        <h4 class="alert-heading">Are you sure?</h4>
+        <p>You are about to permanently delete the following shift:</p>
+        <hr>
+        <p class="mb-0">
+            <strong>Staff:</strong> {{ object.staff.get_full_name }}<br>
+            <strong>Date:</strong> {{ object.date }}<br>
+            <strong>Shift:</strong> {{ object.shift_type.name }}
+        </p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete Permanently</button>
+        <a href="{% url 'main_app:index' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}

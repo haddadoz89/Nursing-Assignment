@@ -1,0 +1,39 @@
+body {
+    font-size: 10pt;
+    color: #000;
+    background: #fff;
+}
+
+.navbar, footer, .btn, .alert, a[href*='/edit'], a[href*='/delete'] {
+    display: none !important;
+}
+
+/* Ensure links show their URL when printed (optional but useful) */
+a:after {
+    content: " (" attr(href) ")";
+}
+/* Don't show the URL for links in the roster table itself */
+table a:after {
+    content: "";
+}
+
+
+/* Make the table and content expand to the full page width */
+.container, .container-fluid, .table-responsive {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+table, .table {
+    width: 100% !important;
+    border: 1px solid #000;
+}
+
+.table th, .table td {
+    border: 1px solid #ccc !important;
+}
+
+h1, h2, h3 {
+    page-break-after: avoid;
+}

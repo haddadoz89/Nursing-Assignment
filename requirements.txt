@@ -1,0 +1,15 @@
+asgiref==3.9.2
+crispy-bootstrap5==2025.6
+dj-database-url==3.0.1
+Django==5.2.6
+django-crispy-forms==2.4
+django-phonenumber-field==8.1.0
+gunicorn==23.0.0
+packaging==25.0
+phonenumbers==9.0.15
+psycopg2-binary==2.9.10
+python-dateutil==2.9.0.post0
+six==1.17.0
+sqlparse==0.5.3
+tzdata==2025.2
+whitenoise==6.11.0

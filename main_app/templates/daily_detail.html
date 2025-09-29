@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Daily Details for {{ view_date|date:"F j, Y" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Daily Assignments for {{ view_date|date:"l, F j, Y" }}</h2>
+  <a href="{% url 'main_app:monthly_roster' view_date.year view_date.month %}" class="btn btn-secondary">&laquo; Back to
+    Roster</a>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <h3 class="mb-0">Staff Nurses</h3>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 15%;">Staff Name</th>
+            <th style="width: 10%;">Shift</th>
+            <th style="width: 20%;">Main Assignment</th>
+            <th style="width: 20%;">Sub-Assignment</th>
+            <th style="width: 20%;">Clinic</th>
+            <th style="width: 15%;">Emergency Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shift in nurse_shifts %}
+          <tr>
+            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
+            <td>{{ shift.shift_type.name }}</td>
+            <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% endfor %}</td>
+            <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% endfor %}</td>
+            <td>{% for item in shift.clinics.all %}{{ item.name }}<br>{% endfor %}</td>
+            <td>{% for item in shift.emergency_roles.all %}{{ item.name }}<br>{% endfor %}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted">No nurses assigned for this day.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="mb-0">Medical Ancillary Services (MAS)</h3>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 25%;">Staff Name</th>
+            <th style="width: 15%;">Shift</th>
+            <th style="width: 30%;">Assignment</th>
+            <th style="width: 30%;">Sub-Assignment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shift in mas_shifts %}
+          <tr>
+            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
+            <td>{{ shift.shift_type.name }}</td>
+            <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% endfor %}</td>
+            <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% endfor %}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">No MAS assigned for this day.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Select Date for Daily Assignment{% endblock %}
+
+{% block content %}
+    <h2>Select Date</h2>
+    <p>Please choose a date to make daily assignments.</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="btn btn-primary mt-3">View Assignment Form</button>
+    </form>
+{% endblock %}
