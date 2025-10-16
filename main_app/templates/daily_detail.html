@@ -3,12 +3,47 @@
 {% block title %}Daily Details for {{ view_date|date:"F j, Y" }}{% endblock %}
 
 {% block content %}
+
+  {% if is_for_pdf %}
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 1cm;
+        }
+        /* These rules hide the navbar, footer, and buttons for the PDF */
+        nav, footer, .btn {
+            display: none;
+        }
+        body {
+            font-size: 14px;
+        }
+        .table {
+        width: 100%;
+        border-collapse:separate;
+        border-spacing: 0.1cm;
+    }
+    .table th, .table td {
+        width: 20%;
+        border: 1px solid #999;
+        padding: 3px;
+        text-align: left;
+        overflow-wrap: break-word;
+    }
+    .table th {
+        background-color: #f2f2f2; /* Keeps the header gray */
+    }
+    </style>
+  {% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">Daily Assignments for {{ view_date|date:"l, F j, Y" }}</h2>
   <a href="{% url 'main_app:monthly_roster' view_date.year view_date.month %}" class="btn btn-secondary">&laquo; Back to
     Roster</a>
 </div>
-
+{% if not is_for_pdf %}
+            <div>
+                <a href="{% url 'main_app:daily_detail_pdf' view_date.year view_date.month view_date.day %}" class="btn btn-info text-white">Download as PDF</a>
+            </div>
+{% endif %}
 <div class="card mb-4">
   <div class="card-header">
     <h3 class="mb-0">Staff Nurses</h3>

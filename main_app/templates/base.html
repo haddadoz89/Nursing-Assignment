@@ -25,6 +25,7 @@
           {% if request.user.role == 'MANAGER' %}
           <a class="nav-link" href="{% url 'main_app:bulk_assign' %}">Bulk Assign</a>
           <a class="nav-link" href="{% url 'main_app:daily_assign_redirect' %}">Daily Assignment Page</a>
+          <a class="nav-link" href="{% url 'main_app:monthly_assignment_list' %}">Manage Monthly Tasks</a>
           {% endif %}
         </div>
         <div class="navbar-nav">

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Monthly Assignments{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Manage Monthly Assignments</h2>
+        <a href="{% url 'main_app:monthly_assignment_create' %}" class="btn btn-primary">+ Add New</a>
+    </div>
+    <table class="table table-striped table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Task</th>
+                <th>Staff Member</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assignment in assignments %}
+            <tr>
+                <td>{{ assignment.task.name }}</td>
+                <td>{{ assignment.staff.get_full_name }}</td>
+                <td>{{ assignment.start_date|date:"F j, Y" }}</td>
+                <td>{{ assignment.end_date|date:"F j, Y" }}</td>
+                <td>
+                    <a href="{% url 'main_app:monthly_assignment_edit' assignment.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                    <a href="{% url 'main_app:monthly_assignment_delete' assignment.pk %}" class="btn btn-sm btn-danger">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">No monthly assignments found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Delete{% endblock %}
+
+{% block content %}
+    <div class="alert alert-danger">
+        <h4 class="alert-heading">Are you sure?</h4>
+        <p>You are about to permanently delete this monthly assignment:</p>
+        <hr>
+        <p class="mb-0">
+            <strong>Task:</strong> {{ object.task.name }}<br>
+            <strong>Staff:</strong> {{ object.staff.get_full_name }}<br>
+            <strong>Period:</strong> {{ object.start_date|date:"M j" }} to {{ object.end_date|date:"M j, Y" }}
+        </p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete Permanently</button>
+        <a href="{% url 'main_app:monthly_assignment_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+{% endblock %}

@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Shift, ShiftType, Assignment, SubAssignment, Clinic, EmergencyRole, Rotation, RotationDay
+from .models import User, Shift, ShiftType, Assignment, SubAssignment, Clinic, EmergencyRole, Rotation, RotationDay, MonthlyTask, MonthlyAssignment
 
 # We need to customize the User admin to show our new fields
 class CustomUserAdmin(UserAdmin):
@@ -24,6 +24,11 @@ class RotationAdmin(admin.ModelAdmin):
     inlines = [RotationDayInline]
     list_display = ('name', 'length_in_days')
 
+class MonthlyAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'task', 'start_date', 'end_date')
+    list_filter = ('staff', 'task', 'start_date')
+    search_fields = ('staff__first_name', 'staff__last_name', 'task__name')
+
 # Register your models here
 admin.site.register(User, CustomUserAdmin)
 admin.site.register(Shift)
@@ -33,3 +38,5 @@ admin.site.register(SubAssignment)
 admin.site.register(Clinic)
 admin.site.register(EmergencyRole)
 admin.site.register(Rotation, RotationAdmin)
+admin.site.register(MonthlyTask)
+admin.site.register(MonthlyAssignment, MonthlyAssignmentAdmin)

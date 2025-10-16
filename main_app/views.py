@@ -1,4 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.template.loader import render_to_string
+from django.contrib.auth.decorators import login_required
+import json
 from django.views.generic import (
     ListView,
     CreateView,
@@ -18,6 +21,7 @@ from .models import (
     SubAssignment,
     Clinic,
     EmergencyRole,
+    MonthlyAssignment,
 )
 from .forms import (
     ShiftForm,
@@ -25,16 +29,23 @@ from .forms import (
     DateSelectionForm,
     RotationAssignForm,
     ProfileUpdateForm,
+    MonthlyAssignmentForm,
 )
 from django.urls import reverse_lazy
 from dateutil.relativedelta import relativedelta
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
 import datetime
 import calendar
+from io import BytesIO
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+from collections import Counter
+
 
 class ManagerRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.role == "MANAGER"
+
 
 class DashboardView(LoginRequiredMixin, ListView):
     model = Shift
@@ -50,6 +61,7 @@ class DashboardView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["today"] = datetime.date.today()
         return context
+
 
 class ShiftCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
     model = Shift
@@ -75,6 +87,7 @@ class ShiftCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
         if "staff_id" in self.kwargs:
             form.fields["staff"].disabled = True
         return form
+
 
 class ShiftUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
     model = Shift
@@ -129,6 +142,13 @@ class MonthlyRosterView(LoginRequiredMixin, TemplateView):
 
         year = self.kwargs.get("year", datetime.date.today().year)
         month = self.kwargs.get("month", datetime.date.today().month)
+        _, last_day = calendar.monthrange(year, month)
+        month_start = datetime.date(year, month, 1)
+        month_end = datetime.date(year, month, last_day)
+        context['monthly_assignments'] = MonthlyAssignment.objects.filter(
+            start_date__lte=month_end,
+            end_date__gte=month_start
+        ).select_related('staff', 'task').order_by('task__name')
         current_date = datetime.date(year, month, 1)
 
         context["previous_month"] = current_date - relativedelta(months=1)
@@ -187,8 +207,7 @@ class DailyDetailView(LoginRequiredMixin, TemplateView):
         shifts = Shift.objects.filter(date=view_date).order_by(
             "shift_type__start_time", "staff__first_name"
         )
-        context["nurse_shifts"] = shifts.filter(
-            staff__role__in=["NURSE", "MANAGER"])
+        context["nurse_shifts"] = shifts.filter(staff__role__in=["NURSE", "MANAGER"])
         context["mas_shifts"] = shifts.filter(staff__role="MAS")
 
         return context
@@ -204,6 +223,7 @@ class MyScheduleView(LoginRequiredMixin, ListView):
             staff=self.request.user, date__gte=datetime.date.today()
         ).order_by("date", "shift_type__start_time")
 
+
 class DailyAssignRedirectView(LoginRequiredMixin, ManagerRequiredMixin, FormView):
     template_name = "daily_assign_select_date.html"
     form_class = DateSelectionForm
@@ -214,43 +234,78 @@ class DailyAssignRedirectView(LoginRequiredMixin, ManagerRequiredMixin, FormView
             "main_app:daily_assign", year=date.year, month=date.month, day=date.day
         )
 
+
 class DailyAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
-    template_name = 'daily_assign_form.html'
+    template_name = "daily_assign_form.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        year = self.kwargs.get('year')
-        month = self.kwargs.get('month')
-        day = self.kwargs.get('day')
+        year = self.kwargs.get("year")
+        month = self.kwargs.get("month")
+        day = self.kwargs.get("day")
         view_date = datetime.date(year, month, day)
 
-        context['view_date'] = view_date
-        context['main_assignments'] = Assignment.objects.all()
-        context['sub_assignments'] = SubAssignment.objects.all()
-        context['clinics'] = Clinic.objects.all()
-        context['emergency_roles'] = EmergencyRole.objects.all()
+        context["view_date"] = view_date
+        start_date = view_date - datetime.timedelta(days=5)
+        recent_shifts = Shift.objects.filter(
+            date__range=(start_date, view_date - datetime.timedelta(days=1))
+        )
 
-        context['shift_types'] = ShiftType.objects.all()
-        context['staff_members'] = User.objects.filter(
-            is_active=True).order_by('first_name')
+        # 2. Create a data structure for easy lookup in JavaScript
+        # Format: { staff_id: { task_type: { task_id: 'YYYY-MM-DD' } } }
+        history = {}
+        for shift in recent_shifts:
+            staff_id_str = str(shift.staff_id)
+            if staff_id_str not in history:
+                history[staff_id_str] = {
+                    "main": {},
+                    "sub": {},
+                    "clinic": {},
+                    "emergency": {},
+                }
+
+            for task in shift.assignments.all():
+                history[staff_id_str]["main"][str(task.id)] = shift.date.isoformat()
+            for task in shift.sub_assignments.all():
+                history[staff_id_str]["sub"][str(task.id)] = shift.date.isoformat()
+            for task in shift.clinics.all():
+                history[staff_id_str]["clinic"][str(task.id)] = shift.date.isoformat()
+            for task in shift.emergency_roles.all():
+                history[staff_id_str]["emergency"][
+                    str(task.id)
+                ] = shift.date.isoformat()
+
+        # 3. Pass the data to the template as a JSON string
+        context["history_json"] = json.dumps(history)
+
+        context["main_assignments"] = Assignment.objects.all()
+        context["sub_assignments"] = SubAssignment.objects.all()
+        context["clinics"] = Clinic.objects.all()
+        context["emergency_roles"] = EmergencyRole.objects.all()
+
+        context["shift_types"] = ShiftType.objects.all()
+        context["staff_members"] = User.objects.filter(is_active=True).order_by(
+            "first_name"
+        )
 
         existing_shifts = Shift.objects.filter(date=view_date).prefetch_related(
-            'assignments', 'sub_assignments', 'clinics', 'emergency_roles'
+            "assignments", "sub_assignments", "clinics", "emergency_roles"
         )
-        context['existing_shifts'] = existing_shifts
+        context["existing_shifts"] = existing_shifts
 
         return context
 
     def post(self, request, *args, **kwargs):
-        view_date = datetime.date(self.kwargs.get(
-            'year'), self.kwargs.get('month'), self.kwargs.get('day'))
+        view_date = datetime.date(
+            self.kwargs.get("year"), self.kwargs.get("month"), self.kwargs.get("day")
+        )
         staff_shift_tasks = {}
 
         for key, staff_id in request.POST.items():
-            if key in ['csrfmiddlewaretoken'] or not staff_id:
+            if key in ["csrfmiddlewaretoken"] or not staff_id:
                 continue
 
-            parts = key.split('_')
+            parts = key.split("_")
             task_type = parts[0]
             shift_type_id = int(parts[1])
             task_id = int(parts[2])
@@ -258,32 +313,38 @@ class DailyAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
             dict_key = (staff_id, shift_type_id)
             if dict_key not in staff_shift_tasks:
                 staff_shift_tasks[dict_key] = {
-                    'assignments': [], 'sub_assignments': [], 'clinics': [], 'emergency_roles': []
+                    "assignments": [],
+                    "sub_assignments": [],
+                    "clinics": [],
+                    "emergency_roles": [],
                 }
 
-            if task_type == 'main':
-                staff_shift_tasks[dict_key]['assignments'].append(task_id)
-            elif task_type == 'sub':
-                staff_shift_tasks[dict_key]['sub_assignments'].append(task_id)
-            elif task_type == 'clinic':
-                staff_shift_tasks[dict_key]['clinics'].append(task_id)
-            elif task_type == 'emergency':
-                staff_shift_tasks[dict_key]['emergency_roles'].append(task_id)
+            if task_type == "main":
+                staff_shift_tasks[dict_key]["assignments"].append(task_id)
+            elif task_type == "sub":
+                staff_shift_tasks[dict_key]["sub_assignments"].append(task_id)
+            elif task_type == "clinic":
+                staff_shift_tasks[dict_key]["clinics"].append(task_id)
+            elif task_type == "emergency":
+                staff_shift_tasks[dict_key]["emergency_roles"].append(task_id)
 
         Shift.objects.filter(date=view_date).delete()
 
         for (staff_id, shift_type_id), tasks in staff_shift_tasks.items():
             new_shift = Shift.objects.create(
-                staff_id=staff_id,
-                shift_type_id=shift_type_id,
-                date=view_date
+                staff_id=staff_id, shift_type_id=shift_type_id, date=view_date
             )
-            new_shift.assignments.set(tasks['assignments'])
-            new_shift.sub_assignments.set(tasks['sub_assignments'])
-            new_shift.clinics.set(tasks['clinics'])
-            new_shift.emergency_roles.set(tasks['emergency_roles'])
+            new_shift.assignments.set(tasks["assignments"])
+            new_shift.sub_assignments.set(tasks["sub_assignments"])
+            new_shift.clinics.set(tasks["clinics"])
+            new_shift.emergency_roles.set(tasks["emergency_roles"])
 
-        return redirect('main_app:daily_detail', year=view_date.year, month=view_date.month, day=view_date.day)
+        return redirect(
+            "main_app:daily_detail",
+            year=view_date.year,
+            month=view_date.month,
+            day=view_date.day,
+        )
 
 
 class BulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, FormView):
@@ -323,21 +384,158 @@ class BulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, FormView):
 
         return super().form_valid(form)
 
+
 class ProfileView(LoginRequiredMixin, DetailView):
     model = User
-    template_name = 'profile.html'
-    context_object_name = 'profile_user'
+    template_name = "profile.html"
+    context_object_name = "profile_user"
 
     def get_object(self, queryset=None):
         # This ensures the user can only see their own profile
         return self.request.user
 
+
 class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     model = User
     form_class = ProfileUpdateForm
-    template_name = 'profile_form.html'
-    success_url = reverse_lazy('main_app:profile')
+    template_name = "profile_form.html"
+    success_url = reverse_lazy("main_app:profile")
 
     def get_object(self, queryset=None):
         # This ensures the user can only edit their own profile
         return self.request.user
+
+
+from django.http import HttpRequest
+
+
+@login_required
+def daily_schedule_pdf_view(request: HttpRequest, year: int, month: int, day: int):
+    view_date = datetime.date(year, month, day)
+    shifts = (
+        Shift.objects.filter(date=view_date)
+        .select_related("staff", "shift_type")
+        .order_by("shift_type__start_time", "staff__first_name")
+    )
+
+    # Group shifts by shift type
+    shifts_by_type = {}
+    for shift in shifts:
+        shift_type_name = shift.shift_type.name
+        if shift_type_name not in shifts_by_type:
+            shifts_by_type[shift_type_name] = {
+                "shift_type": shift.shift_type,
+                "nurse_shifts": [],
+                "mas_shifts": [],
+            }
+
+        if shift.staff.role in ["NURSE", "MANAGER"]:
+            shifts_by_type[shift_type_name]["nurse_shifts"].append(shift)
+        elif shift.staff.role == "MAS":
+            shifts_by_type[shift_type_name]["mas_shifts"].append(shift)
+
+    context: dict[str, object] = {
+        "view_date": view_date,
+        "shifts_by_type": shifts_by_type,
+        "is_for_pdf": True,
+    }
+
+    html_string = render_to_string("daily_detail_pdf.html", context)
+
+    # Create a PDF in memory
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html_string.encode("UTF-8")), result)
+
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="daily_schedule_{view_date}.pdf"'
+        )
+        return response
+
+    return HttpResponse("Error Rendering PDF", status=400)
+
+
+class StaffAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
+    model = User
+    template_name = "staff_analytics.html"
+    context_object_name = "staff_member"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        staff_member = self.get_object()
+
+        # Get year and month from the URL
+        year = self.kwargs.get("year")
+        month = self.kwargs.get("month")
+        current_date = datetime.date(year, month, 1)
+
+        # Calculate previous and next months for navigation
+        context["previous_month"] = current_date - relativedelta(months=1)
+        context["next_month"] = current_date + relativedelta(months=1)
+        context["month_name"] = calendar.month_name[month]
+        context["year"] = year
+
+        # Get all shifts for this staff member for the selected month
+        shifts = Shift.objects.filter(
+            staff=staff_member, date__year=year, date__month=month
+        ).order_by("date")
+
+        context["shift_history"] = shifts
+
+        # --- Perform the Analysis ---
+        shift_type_counts = Counter()
+        assignment_counts = Counter()
+        sub_assignment_counts = Counter()
+        clinic_counts = Counter()
+        emergency_role_counts = Counter()
+
+        for shift in shifts:
+            shift_type_counts[shift.shift_type.name] += 1
+            for assignment in shift.assignments.all():
+                assignment_counts[assignment.name] += 1
+            for sub_assignment in shift.sub_assignments.all():
+                sub_assignment_counts[sub_assignment.name] += 1
+            for clinic in shift.clinics.all():
+                clinic_counts[clinic.name] += 1
+            for emergency_role in shift.emergency_roles.all():
+                emergency_role_counts[emergency_role.name] += 1
+
+        context["shift_type_counts"] = dict(shift_type_counts)
+        context["assignment_counts"] = dict(assignment_counts)
+        context["sub_assignment_counts"] = dict(sub_assignment_counts)
+        context["clinic_counts"] = dict(clinic_counts)
+        context["emergency_role_counts"] = dict(emergency_role_counts)
+
+        chart_labels = list(shift_type_counts.keys())
+        chart_data = list(shift_type_counts.values())
+
+        context["chart_labels_json"] = json.dumps(chart_labels)
+        context["chart_data_json"] = json.dumps(chart_data)
+
+        return context
+class MonthlyAssignmentListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
+    model = MonthlyAssignment
+    template_name = 'monthlyassignment_list.html'
+    context_object_name = 'assignments'
+    ordering = ['-start_date']
+
+# 2. Create View
+class MonthlyAssignmentCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
+    model = MonthlyAssignment
+    form_class = MonthlyAssignmentForm
+    template_name = 'monthlyassignment_form.html'
+    success_url = reverse_lazy('main_app:monthly_assignment_list')
+
+# 3. Update View
+class MonthlyAssignmentUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
+    model = MonthlyAssignment
+    form_class = MonthlyAssignmentForm
+    template_name = 'monthlyassignment_form.html'
+    success_url = reverse_lazy('main_app:monthly_assignment_list')
+
+# 4. Delete View
+class MonthlyAssignmentDeleteView(LoginRequiredMixin, ManagerRequiredMixin, DeleteView):
+    model = MonthlyAssignment
+    template_name = 'monthlyassignment_confirm_delete.html'
+    success_url = reverse_lazy('main_app:monthly_assignment_list')

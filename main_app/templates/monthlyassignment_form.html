@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if object %}Edit{% else %}Create{% endif %} Monthly Assignment{% endblock %}
+
+{% block content %}
+    <h2>{% if object %}Edit{% else %}Create{% endif %} Monthly Assignment</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="btn btn-primary mt-3">Save</button>
+        <a href="{% url 'main_app:monthly_assignment_list' %}" class="btn btn-secondary mt-3">Cancel</a>
+    </form>
+{% endblock %}

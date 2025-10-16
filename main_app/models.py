@@ -110,3 +110,21 @@ class RotationDay(models.Model):
         if self.is_day_off:
             return f"Day {self.day_number}: Off"
         return f"Day {self.day_number}: {self.shift_type.name}"
+
+class MonthlyTask(models.Model):
+    """A type of task that is assigned monthly, e.g., 'Inventory Check'."""
+    name = models.CharField(max_length=200, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class MonthlyAssignment(models.Model):
+    """Links a staff member to a monthly task for a specific DATE RANGE."""
+    staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='monthly_assignments')
+    task = models.ForeignKey(MonthlyTask, on_delete=models.CASCADE, related_name='assignments')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    notes = models.TextField(blank=True, help_text="Explain why this assignment is split, if applicable.")
+
+    def __str__(self):
+        return f"{self.staff.get_full_name()} - {self.task.name} ({self.start_date} to {self.end_date})"

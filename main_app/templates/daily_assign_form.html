@@ -1,11 +1,10 @@
 {% extends 'base.html' %}
-{% load roster_extras %}
 
 {% block title %}Daily Assignment for {{ view_date|date:"F j, Y" }}{% endblock %}
 
 {% block content %}
     <h2>Daily Assignment for {{ view_date|date:"l, F j, Y" }}</h2>
-    <p>Select a staff member from the dropdown for each role. Leave blank if unassigned.</p>
+    <p>Select a staff member from the dropdown for each role. A warning will appear if a staff member was assigned the same task yesterday.</p>
 
     <form method="post">
         {% csrf_token %}
@@ -27,10 +26,11 @@
                         <td>{{ assignment.name }}</td>
                         {% for shift_type in shift_types %}
                         <td>
-                            <select name="main_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                            <select name="main_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm assignment-select" data-task-type="main" data-task-id="{{ assignment.id }}">
                                 <option value="">---------</option>
                                 {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.assignments.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
                             </select>
+                            <span class="warning-message text-danger small"></span>
                         </td>
                         {% endfor %}
                     </tr>
@@ -43,50 +43,65 @@
                         <td>{{ assignment.name }}</td>
                         {% for shift_type in shift_types %}
                         <td>
-                            <select name="sub_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
+                            <select name="sub_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm assignment-select" data-task-type="sub" data-task-id="{{ assignment.id }}">
                                 <option value="">---------</option>
                                 {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.sub_assignments.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
                             </select>
+                            <span class="warning-message text-danger small"></span>
                         </td>
                         {% endfor %}
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tbody>
-                    {% for assignment in clinics %}
-                    <tr>
-                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ clinics|length }}">Clinics</td>{% endif %}
-                        <td>{{ assignment.name }}</td>
-                        {% for shift_type in shift_types %}
-                        <td>
-                            <select name="clinic_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
-                                <option value="">---------</option>
-                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.clinics.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
-                            </select>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tbody>
-                    {% for assignment in emergency_roles %}
-                    <tr>
-                        {% if forloop.first %}<td class="fw-bold align-middle" rowspan="{{ emergency_roles|length }}">Emergency Roles</td>{% endif %}
-                        <td>{{ assignment.name }}</td>
-                        {% for shift_type in shift_types %}
-                        <td>
-                            <select name="emergency_{{ shift_type.id }}_{{ assignment.id }}" class="form-select form-select-sm">
-                                <option value="">---------</option>
-                                {% for staff in staff_members %}<option value="{{ staff.id }}" {% for shift in existing_shifts %}{% if shift.staff == staff and shift.shift_type == shift_type and assignment in shift.emergency_roles.all %}selected{% endif %}{% endfor %}>{{ staff.get_full_name }}</option>{% endfor %}
-                            </select>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                </table>
         </div>
         <button type="submit" class="btn btn-primary mt-3">Save All Assignments for This Day</button>
         <a href="{% url 'main_app:daily_detail' view_date.year view_date.month view_date.day %}" class="btn btn-secondary mt-3">Cancel</a>
     </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the data from the Django template
+            const assignmentHistory = JSON.parse('{{ history_json|escapejs }}');
+            const viewDate = new Date('{{ view_date|date:"Y-m-d" }}');
+            
+            // Get all dropdowns
+            const allSelects = document.querySelectorAll('.assignment-select');
+
+            function checkAssignment(selectElement) {
+                const staffId = selectElement.value;
+                const taskType = selectElement.dataset.taskType;
+                const taskId = selectElement.dataset.taskId;
+                const warningSpan = selectElement.nextElementSibling;
+
+                // Clear any previous warning
+                warningSpan.textContent = '';
+
+                if (!staffId || !assignmentHistory[staffId] || !assignmentHistory[staffId][taskType][taskId]) {
+                    return; // No history for this combination
+                }
+                
+                const lastAssignedDate = new Date(assignmentHistory[staffId][taskType][taskId]);
+                
+                // Calculate the difference in days
+                const oneDay = 24 * 60 * 60 * 1000;
+                const diffDays = Math.round((viewDate - lastAssignedDate) / oneDay);
+                
+                if (diffDays === 1) {
+                    warningSpan.textContent = 'Warning: Assigned yesterday!';
+                }
+            }
+            
+            // Add an event listener to each dropdown
+            allSelects.forEach(function(select) {
+                // Check the initial value when the page loads
+                checkAssignment(select);
+                
+                // Check again whenever the selection changes
+                select.addEventListener('change', function() {
+                    checkAssignment(this);
+                });
+            });
+        });
+    </script>
 {% endblock %}

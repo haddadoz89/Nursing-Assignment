@@ -26,4 +26,11 @@ urlpatterns = [
     path('profile/edit/', views.ProfileUpdateView.as_view(), name='profile_edit'),
     path('password-change/',PasswordChangeView.as_view(template_name='password_change_form.html',success_url='/password-change/done/'),name='password_change'),
     path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='password_change_done.html'),name='password_change_done'),
+    path('daily/<int:year>/<int:month>/<int:day>/pdf/', views.daily_schedule_pdf_view, name='daily_detail_pdf'),
+    path('staff/<int:pk>/analytics/<int:year>/<int:month>/', views.StaffAnalyticsView.as_view(), name='staff_analytics'),
+    path('monthly-assignments/', views.MonthlyAssignmentListView.as_view(), name='monthly_assignment_list'),
+    path('monthly-assignments/new/', views.MonthlyAssignmentCreateView.as_view(), name='monthly_assignment_create'),
+    path('monthly-assignments/<int:pk>/edit/', views.MonthlyAssignmentUpdateView.as_view(), name='monthly_assignment_edit'),
+    path('monthly-assignments/<int:pk>/delete/', views.MonthlyAssignmentDeleteView.as_view(), name='monthly_assignment_delete'),
+
 ]
