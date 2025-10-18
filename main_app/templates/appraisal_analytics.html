@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Staff Appraisal Analytics{% endblock %}
+
+{% block content %}
+    <h2>Staff Appraisal Analytics</h2>
+    <p>Select a staff member and a date range to view their task completion performance.</p>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get">
+                {{ form|crispy }}
+                <button type="submit" class="btn btn-primary mt-3">Generate Report</button>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_staff %}
+        <hr>
+        <h3>Report for {{ selected_staff.get_full_name }}</h3>
+        <p class="text-muted">From {{ date_range.0|date:"F j, Y" }} to {{ date_range.1|date:"F j, Y" }}</p>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Daily Shift Performance ({{ daily_completion_percent }}% Completed)</h4>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Monthly Assignment Performance ({{ monthly_completion_percent }}% Completed)</h4>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            // --- Daily Chart ---
+            const dailyCtx = document.getElementById('dailyChart');
+            new Chart(dailyCtx, {
+                type: 'pie',
+                data: {
+                    labels: JSON.parse('{{ daily_chart_labels|escapejs }}'),
+                    datasets: [{
+                        label: 'Daily Shifts',
+                        data: JSON.parse('{{ daily_chart_data|escapejs }}'),
+                        backgroundColor: ['rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)'],
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            });
+
+            // --- Monthly Chart ---
+            const monthlyCtx = document.getElementById('monthlyChart');
+            new Chart(monthlyCtx, {
+                type: 'pie',
+                data: {
+                    labels: JSON.parse('{{ monthly_chart_labels|escapejs }}'),
+                    datasets: [{
+                        label: 'Monthly Assignments',
+                        data: JSON.parse('{{ monthly_chart_data|escapejs }}'),
+                        backgroundColor: ['rgba(40, 167, 69, 0.7)', 'rgba(255, 193, 7, 0.7)', 'rgba(220, 53, 69, 0.7)'],
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            });
+        </script>
+    {% endif %}
+{% endblock %}

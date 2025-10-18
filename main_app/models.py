@@ -4,6 +4,11 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
+class AssignmentStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending Assessment'
+    COMPLETED = 'COMPLETED', 'Completed'
+    PARTIAL = 'PARTIAL', 'Partially Completed'
+    NOT_COMPLETED = 'NOT_COMPLETED', 'Not Completed'
 
 # The final, all-in-one model for a staff member.
 class User(AbstractUser):
@@ -80,7 +85,10 @@ class Shift(models.Model):
     sub_assignments = models.ManyToManyField(SubAssignment, blank=True)
     clinics = models.ManyToManyField(Clinic, blank=True)
     emergency_roles = models.ManyToManyField(EmergencyRole, blank=True)
-
+    
+    status = models.CharField(max_length=15, choices=AssignmentStatus.choices, default=AssignmentStatus.PENDING)
+    team_leader_notes = models.TextField(blank=True, null=True, help_text="Notes from the team leader.")
+    is_approved_by_manager = models.BooleanField(default=False)
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -121,6 +129,7 @@ class MonthlyTask(models.Model):
 class MonthlyAssignment(models.Model):
     """Links a staff member to a monthly task for a specific DATE RANGE."""
     staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='monthly_assignments')
+    status = models.CharField(max_length=15, choices=AssignmentStatus.choices, default=AssignmentStatus.PENDING)
     task = models.ForeignKey(MonthlyTask, on_delete=models.CASCADE, related_name='assignments')
     start_date = models.DateField()
     end_date = models.DateField()

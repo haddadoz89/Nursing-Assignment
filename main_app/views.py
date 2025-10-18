@@ -30,6 +30,7 @@ from .forms import (
     RotationAssignForm,
     ProfileUpdateForm,
     MonthlyAssignmentForm,
+    AppraisalFilterForm,
 )
 from django.urls import reverse_lazy
 from dateutil.relativedelta import relativedelta
@@ -483,12 +484,20 @@ class StaffAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
 
         context["shift_history"] = shifts
 
+        monthly_assignments = MonthlyAssignment.objects.filter(
+            staff=staff_member, 
+            start_date__year=year, 
+            start_date__month=month
+        ).select_related('task')
+
         # --- Perform the Analysis ---
         shift_type_counts = Counter()
         assignment_counts = Counter()
         sub_assignment_counts = Counter()
         clinic_counts = Counter()
         emergency_role_counts = Counter()
+        monthly_task_counts = Counter(ma.task.name for ma in monthly_assignments)
+        
 
         for shift in shifts:
             shift_type_counts[shift.shift_type.name] += 1
@@ -506,6 +515,7 @@ class StaffAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
         context["sub_assignment_counts"] = dict(sub_assignment_counts)
         context["clinic_counts"] = dict(clinic_counts)
         context["emergency_role_counts"] = dict(emergency_role_counts)
+        context['monthly_task_counts'] = dict(monthly_task_counts)
 
         chart_labels = list(shift_type_counts.keys())
         chart_data = list(shift_type_counts.values())
@@ -539,3 +549,135 @@ class MonthlyAssignmentDeleteView(LoginRequiredMixin, ManagerRequiredMixin, Dele
     model = MonthlyAssignment
     template_name = 'monthlyassignment_confirm_delete.html'
     success_url = reverse_lazy('main_app:monthly_assignment_list')
+
+class ChecklistView(LoginRequiredMixin, TemplateView):
+    template_name = 'checklist.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = datetime.date.today()
+        team_leader = self.request.user
+
+        # Find if the current user is a team leader today
+        leader_shifts = Shift.objects.filter(staff=team_leader, date=today, assignments__name__icontains='Team Leader')
+
+        shifts_to_assess = Shift.objects.none() # Empty queryset by default
+
+        if leader_shifts.exists():
+            # Get the shift type the user is leading (e.g., Morning)
+            leader_shift_type = leader_shifts.first().shift_type
+            # Find all other staff working that same shift
+            shifts_to_assess = Shift.objects.filter(
+                date=today,
+                shift_type=leader_shift_type
+            ).exclude(staff=team_leader).select_related('staff')
+
+        context['shifts_to_assess'] = shifts_to_assess
+        context['is_team_leader_today'] = leader_shifts.exists()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        for key, value in request.POST.items():
+            if key.startswith('status_'):
+                shift_id = key.split('_')[1]
+                shift = Shift.objects.get(id=shift_id)
+                shift.status = value
+                shift.team_leader_notes = request.POST.get(f'notes_{shift_id}', '')
+                shift.save()
+
+        messages.success(request, "Checklist saved successfully!")
+        return redirect('main_app:checklist')
+
+class ManagerReviewView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
+    template_name = 'manager_review.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get the date from the URL query parameter, if it exists
+        date_str = self.request.GET.get('date')
+        view_date = None
+        
+        if date_str:
+            try:
+                view_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+                shifts_for_day = Shift.objects.filter(date=view_date).select_related('staff', 'shift_type')
+                context['shifts_for_day'] = shifts_for_day
+            except (ValueError, TypeError):
+                pass
+
+        context['view_date'] = view_date
+        return context
+
+    def post(self, request, *args, **kwargs):
+        date_str = request.POST.get('date')
+        if not date_str:
+            # Handle error if date is missing
+            return redirect('main_app:manager_review')
+
+        view_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+
+        for key, value in request.POST.items():
+            if key.startswith('status_'):
+                shift_id = key.split('_')[1]
+                shift = Shift.objects.get(id=shift_id)
+                shift.status = value
+                shift.team_leader_notes = request.POST.get(f'notes_{shift_id}', '')
+                
+                # Check if the 'approve' checkbox was checked for this shift
+                if f'approve_{shift_id}' in request.POST:
+                    shift.is_approved_by_manager = True
+                
+                shift.save()
+        
+        messages.success(request, f"Checklist for {view_date} has been updated and approved.")
+        return redirect(f"{reverse('main_app:manager_review')}?date={date_str}")
+
+class AppraisalAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
+    template_name = 'appraisal_analytics.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = AppraisalFilterForm(self.request.GET or None)
+        context['form'] = form
+
+        if form.is_valid():
+            staff = form.cleaned_data['staff']
+            start_date = form.cleaned_data['start_date']
+            end_date = form.cleaned_data['end_date']
+            context['selected_staff'] = staff
+            context['date_range'] = (start_date, end_date)
+
+            # --- 1. Daily Shift Analysis ---
+            daily_shifts = Shift.objects.filter(
+                staff=staff,
+                date__range=(start_date, end_date),
+                status__in=['COMPLETED', 'PARTIAL', 'NOT_COMPLETED']
+            )
+            daily_status_counts = Counter(s.status for s in daily_shifts)
+            
+            total_daily = daily_shifts.count()
+            completed_daily = daily_status_counts.get('COMPLETED', 0)
+            daily_completion_percent = (completed_daily / total_daily * 100) if total_daily > 0 else 0
+            
+            context['daily_completion_percent'] = round(daily_completion_percent, 1)
+            context['daily_chart_labels'] = json.dumps(list(daily_status_counts.keys()))
+            context['daily_chart_data'] = json.dumps(list(daily_status_counts.values()))
+
+            # --- 2. Monthly Assignment Analysis ---
+            monthly_assignments = MonthlyAssignment.objects.filter(
+                staff=staff,
+                end_date__gte=start_date,
+                start_date__lte=end_date,
+                status__in=['COMPLETED', 'PARTIAL', 'NOT_COMPLETED']
+            )
+            monthly_status_counts = Counter(ma.status for ma in monthly_assignments)
+
+            total_monthly = monthly_assignments.count()
+            completed_monthly = monthly_status_counts.get('COMPLETED', 0)
+            monthly_completion_percent = (completed_monthly / total_monthly * 100) if total_monthly > 0 else 0
+
+            context['monthly_completion_percent'] = round(monthly_completion_percent, 1)
+            context['monthly_chart_labels'] = json.dumps(list(monthly_status_counts.keys()))
+            context['monthly_chart_data'] = json.dumps(list(monthly_status_counts.values()))
+
+        return context

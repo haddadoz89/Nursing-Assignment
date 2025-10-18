@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Daily Checklist{% endblock %}
+
+{% block content %}
+    <h2>Daily Completion Checklist</h2>
+
+    {% if is_team_leader_today %}
+        <form method="post">
+            {% csrf_token %}
+            <p>Please update the status for each staff member on your shift.</p>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Assigned Tasks</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shift in shifts_to_assess %}
+                        <tr>
+                            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
+                            <td>
+                                <ul class="list-unstyled mb-0">
+                                    {% for item in shift.assignments.all %}<li>{{ item.name }}</li>{% endfor %}
+                                    {% for item in shift.sub_assignments.all %}<li>{{ item.name }}</li>{% endfor %}
+                                    </ul>
+                            </td>
+                            <td>
+                                <select name="status_{{ shift.id }}" class="form-select">
+                                    <option value="COMPLETED" {% if shift.status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+                                    <option value="PARTIAL" {% if shift.status == 'PARTIAL' %}selected{% endif %}>Partially Completed</option>
+                                    <option value="NOT_COMPLETED" {% if shift.status == 'NOT_COMPLETED' %}selected{% endif %}>Not Completed</option>
+                                    <option value="PENDING" {% if shift.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                                </select>
+                            </td>
+                            <td>
+                                <textarea name="notes_{{ shift.id }}" class="form-control" rows="2">{{ shift.team_leader_notes|default_if_none:"" }}</textarea>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Save Checklist</button>
+        </form>
+    {% else %}
+        <div class="alert alert-warning">You are not assigned as a Team Leader for any shift today, so there is no checklist for you to fill out.</div>
+    {% endif %}
+{% endblock %}

@@ -46,8 +46,17 @@ class ProfileUpdateForm(forms.ModelForm):
 class MonthlyAssignmentForm(forms.ModelForm):
     class Meta:
         model = MonthlyAssignment
-        fields = ['staff', 'task', 'start_date', 'end_date', 'notes']
+        fields = ['staff', 'task', 'start_date', 'end_date', 'status', 'notes']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
+
+class AppraisalFilterForm(forms.Form):
+    staff = forms.ModelChoiceField(
+        queryset=User.objects.filter(is_active=True).order_by('first_name'),
+        label="Select Staff Member",
+        required=True
+    )
+    start_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=True)
+    end_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=True)

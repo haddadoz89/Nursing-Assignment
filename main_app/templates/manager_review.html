@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Manager Review Checklist{% endblock %}
+
+{% block content %}
+    <h2>Manager Review Checklist</h2>
+    <p>Select a date to review, edit, and approve the daily checklist.</p>
+
+    <form method="get" class="row g-3 align-items-end mb-4">
+        <div class="col-auto">
+            <label for="date" class="form-label">Select Date</label>
+            <input type="date" name="date" class="form-control" value="{{ view_date|date:'Y-m-d' }}" required>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Load Checklist</button>
+        </div>
+    </form>
+
+    {% if view_date %}
+        <hr>
+        <h3>Checklist for {{ view_date|date:"l, F j, Y" }}</h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="date" value="{{ view_date|date:'Y-m-d' }}">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                            <th class="text-center">Approve</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shift in shifts_for_day %}
+                        <tr class="{% if shift.is_approved_by_manager %}table-success{% endif %}">
+                            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
+                            <td>
+                                <select name="status_{{ shift.id }}" class="form-select form-select-sm">
+                                    <option value="COMPLETED" {% if shift.status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+                                    <option value="PARTIAL" {% if shift.status == 'PARTIAL' %}selected{% endif %}>Partially</option>
+                                    <option value="NOT_COMPLETED" {% if shift.status == 'NOT_COMPLETED' %}selected{% endif %}>Not Completed</option>
+                                    <option value="PENDING" {% if shift.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                                </select>
+                            </td>
+                            <td>
+                                <textarea name="notes_{{ shift.id }}" class="form-control form-control-sm" rows="1">{{ shift.team_leader_notes|default_if_none:"" }}</textarea>
+                            </td>
+                            <td class="text-center align-middle">
+                                <input class="form-check-input" type="checkbox" name="approve_{{ shift.id }}" {% if shift.is_approved_by_manager %}checked{% endif %}>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No shifts found for this date.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-success mt-3">Save & Approve Selected</button>
+        </form>
+    {% endif %}
+{% endblock %}
