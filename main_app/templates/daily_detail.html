@@ -1,118 +1,95 @@
 {% extends 'base.html' %}
 
-{% block title %}Daily Details for {{ view_date|date:"F j, Y" }}{% endblock %}
+{% block title %}Daily Schedule - {{ view_date|date:"F j, Y" }}{% endblock %}
 
 {% block content %}
+<style>
+    /* This style block will ONLY be used by the PDF generator */
+    @media print {
+        body { font-family: Arial, sans-serif; font-size: 10pt; }
+        nav, footer, .btn, .alert, .d-print-none { display: none !important; }
+        .card, .card-header, .card-body { border: none !important; box-shadow: none !important; }
+        .page-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; display: block !important; }
+        .shift-title { font-size: 16pt; font-weight: bold; }
+        .date-title { font-size: 12pt; color: #666; }
+        .staff-section { margin-bottom: 25px; page-break-inside: avoid; }
+        .section-header { background-color: #f5f5f5; padding: 8px 10px; font-weight: bold; font-size: 11pt; border: 1px solid #ddd; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { border: 1px solid #ddd; padding: 5px; text-align: left; vertical-align: top; font-size: 9pt; word-wrap: break-word; }
+        .table th { background-color: #e9ecef; }
+        .shift-page { page-break-after: always; }
+        .shift-page:last-child { page-break-after: auto; }
+    }
+</style>
 
-  {% if is_for_pdf %}
-    <style>
-        @page {
-            size: A4 landscape;
-            margin: 1cm;
-        }
-        /* These rules hide the navbar, footer, and buttons for the PDF */
-        nav, footer, .btn {
-            display: none;
-        }
-        body {
-            font-size: 14px;
-        }
-        .table {
-        width: 100%;
-        border-collapse:separate;
-        border-spacing: 0.1cm;
-    }
-    .table th, .table td {
-        width: 20%;
-        border: 1px solid #999;
-        padding: 3px;
-        text-align: left;
-        overflow-wrap: break-word;
-    }
-    .table th {
-        background-color: #f2f2f2; /* Keeps the header gray */
-    }
-    </style>
-  {% endif %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="mb-0">Daily Assignments for {{ view_date|date:"l, F j, Y" }}</h2>
-  <a href="{% url 'main_app:monthly_roster' view_date.year view_date.month %}" class="btn btn-secondary">&laquo; Back to
-    Roster</a>
+<div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+    <h2 class="mb-0">Daily Assignments for {{ view_date|date:"l, F j, Y" }}</h2>
+    <div>
+        <a href="{% url 'main_app:monthly_roster' view_date.year view_date.month %}" class="btn btn-secondary">&laquo; Back to Roster</a>
+        <a href="{% url 'main_app:daily_detail_pdf' view_date.year view_date.month view_date.day %}" class="btn btn-info text-white">Download as PDF</a>
+    </div>
 </div>
-{% if not is_for_pdf %}
-            <div>
-                <a href="{% url 'main_app:daily_detail_pdf' view_date.year view_date.month view_date.day %}" class="btn btn-info text-white">Download as PDF</a>
+
+<div>
+    {% for shift_name, shift_data in shifts_by_type.items %}
+    <div class="shift-page">
+        <div class="page-header d-print-block d-none">
+            <div class="shift-title">{{ shift_name }} Shift</div>
+            <div class="date-title">{{ view_date|date:"l, F j, Y" }}</div>
+        </div>
+
+        <div class="card mb-4 d-print-none">
+            <div class="card-header">
+                <h3 class="mb-0">{{ shift_name }} Shift</h3>
             </div>
-{% endif %}
-<div class="card mb-4">
-  <div class="card-header">
-    <h3 class="mb-0">Staff Nurses</h3>
-  </div>
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-striped mb-0">
-        <thead class="table-light">
-          <tr>
-            <th style="width: 15%;">Staff Name</th>
-            <th style="width: 10%;">Shift</th>
-            <th style="width: 20%;">Main Assignment</th>
-            <th style="width: 20%;">Sub-Assignment</th>
-            <th style="width: 20%;">Clinic</th>
-            <th style="width: 15%;">Emergency Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for shift in nurse_shifts %}
-          <tr>
-            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
-            <td>{{ shift.shift_type.name }}</td>
-            <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% endfor %}</td>
-            <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% endfor %}</td>
-            <td>{% for item in shift.clinics.all %}{{ item.name }}<br>{% endfor %}</td>
-            <td>{% for item in shift.emergency_roles.all %}{{ item.name }}<br>{% endfor %}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="6" class="text-center text-muted">No nurses assigned for this day.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+        </div>
 
-<div class="card">
-  <div class="card-header">
-    <h3 class="mb-0">Medical Ancillary Services (MAS)</h3>
-  </div>
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-striped mb-0">
-        <thead class="table-light">
-          <tr>
-            <th style="width: 25%;">Staff Name</th>
-            <th style="width: 15%;">Shift</th>
-            <th style="width: 30%;">Assignment</th>
-            <th style="width: 30%;">Sub-Assignment</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for shift in mas_shifts %}
-          <tr>
-            <td class="fw-bold">{{ shift.staff.get_full_name }}</td>
-            <td>{{ shift.shift_type.name }}</td>
-            <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% endfor %}</td>
-            <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% endfor %}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4" class="text-center text-muted">No MAS assigned for this day.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+        {% if shift_data.nurse_shifts %}
+        <div class="staff-section">
+            <div class="section-header"><h4>Staff Nurses</h4></div>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Staff Name</th><th>Main Assignment</th><th>Sub-Assignment</th><th>Clinic</th><th>Emergency Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shift in shift_data.nurse_shifts %}
+                    <tr>
+                        <td class="staff-name fw-bold">{{ shift.staff.get_full_name }}</td>
+                        <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                        <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                        <td>{% for item in shift.clinics.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                        <td>{% for item in shift.emergency_roles.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if shift_data.mas_shifts %}
+        <div class="staff-section">
+            <div class="section-header"><h4>Medical Ancillary Services (MAS)</h4></div>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Staff Name</th><th>Assignment</th><th>Sub-Assignment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shift in shift_data.mas_shifts %}
+                    <tr>
+                        <td class="staff-name fw-bold">{{ shift.staff.get_full_name }}</td>
+                        <td>{% for item in shift.assignments.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                        <td>{% for item in shift.sub_assignments.all %}{{ item.name }}<br>{% empty %}-{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
-  </div>
+    {% endfor %}
 </div>
 {% endblock %}

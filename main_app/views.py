@@ -202,15 +202,29 @@ class DailyDetailView(LoginRequiredMixin, TemplateView):
         year = self.kwargs.get("year")
         month = self.kwargs.get("month")
         day = self.kwargs.get("day")
-
         view_date = datetime.date(year, month, day)
         context["view_date"] = view_date
-        shifts = Shift.objects.filter(date=view_date).order_by(
-            "shift_type__start_time", "staff__first_name"
-        )
-        context["nurse_shifts"] = shifts.filter(staff__role__in=["NURSE", "MANAGER"])
-        context["mas_shifts"] = shifts.filter(staff__role="MAS")
 
+        all_shifts_for_day = Shift.objects.filter(date=view_date).select_related(
+            "staff", "shift_type"
+        ).prefetch_related(
+            "assignments", "sub_assignments", "clinics", "emergency_roles"
+        )
+    
+        shift_types = ShiftType.objects.order_by('start_time')
+
+        # This dictionary is what your new template needs
+        shifts_by_type = {}
+        for shift_type in shift_types:
+            shifts_in_group = all_shifts_for_day.filter(shift_type=shift_type)
+            
+            # We add the group to the dictionary. The template will handle empty states.
+            shifts_by_type[shift_type.name] = {
+                'nurse_shifts': shifts_in_group.filter(staff__role__in=['NURSE', 'MANAGER']),
+                'mas_shifts': shifts_in_group.filter(staff__role='MAS')
+            }
+        
+        context['shifts_by_type'] = shifts_by_type
         return context
 
 
@@ -441,7 +455,7 @@ def daily_schedule_pdf_view(request: HttpRequest, year: int, month: int, day: in
         "is_for_pdf": True,
     }
 
-    html_string = render_to_string("daily_detail_pdf.html", context)
+    html_string = render_to_string("daily_detail.html", context)
 
     # Create a PDF in memory
     result = BytesIO()
