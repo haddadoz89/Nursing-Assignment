@@ -22,6 +22,7 @@ from .models import (
     Clinic,
     EmergencyRole,
     MonthlyAssignment,
+    MonthlyTask,
 )
 from .forms import (
     ShiftForm,
@@ -31,6 +32,7 @@ from .forms import (
     ProfileUpdateForm,
     MonthlyAssignmentForm,
     AppraisalFilterForm,
+    StaffUpdateForm,
 )
 from django.urls import reverse_lazy
 from dateutil.relativedelta import relativedelta
@@ -126,6 +128,32 @@ class UserCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
             "main_app:monthly_roster", kwargs={"year": today.year, "month": today.month}
         )
 
+class StaffListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
+    model = User
+    template_name = 'staff_list.html'
+    context_object_name = 'staff_members'
+    ordering = ['first_name']
+    def get_queryset(self):
+        # Explicitly fetch all active users
+        queryset = User.objects.filter(is_active=True)
+        print(f"Found {queryset.count()} active users.") # Debug print
+        return queryset
+
+class StaffDetailView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
+    model = User
+    template_name = 'staff_detail.html'
+    context_object_name = 'staff_member'
+
+class StaffUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
+    model = User
+    form_class = StaffUpdateForm
+    template_name = 'staff_form.html'
+
+    def get_success_url(self):
+        return reverse(
+            'main_app:staff_detail',
+            kwargs={'pk': self.object.pk}
+        )
 
 class IndexRedirectView(RedirectView):
     def get_redirect_url(self, *args, **kwargs):
@@ -544,7 +572,93 @@ class MonthlyAssignmentListView(LoginRequiredMixin, ManagerRequiredMixin, ListVi
     context_object_name = 'assignments'
     ordering = ['-start_date']
 
-# 2. Create View
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = datetime.date.today()
+        context['year'] = today.year
+        context['month'] = today.month
+        return context
+
+class MonthlyAssignmentDisplayView(LoginRequiredMixin, TemplateView):
+    template_name = 'monthly_assignment_display.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        year = self.kwargs.get('year', datetime.date.today().year)
+        month = self.kwargs.get('month', datetime.date.today().month)
+        context['month_name'] = calendar.month_name[month]
+        context['year'] = year
+
+        # Date calculation for navigation and filtering
+        current_date = datetime.date(year, month, 1)
+        _, last_day = calendar.monthrange(year, month)
+        month_start = datetime.date(year, month, 1)
+        month_end = datetime.date(year, month, last_day)
+        context['previous_month'] = current_date - relativedelta(months=1)
+        context['next_month'] = current_date + relativedelta(months=1)
+
+        # Fetch assignments for the month
+        monthly_assignments = MonthlyAssignment.objects.filter(
+            start_date__lte=month_end,
+            end_date__gte=month_start
+        ).select_related('staff', 'task').order_by('task__name')
+
+        context['monthly_assignments'] = monthly_assignments
+        return context
+
+class MonthlyAssignmentTodayRedirectView(RedirectView):
+    def get_redirect_url(self, *args, **kwargs):
+        today = datetime.date.today()
+        # Redirects to the monthly_assignment_display URL for the current year/month
+        return reverse_lazy('main_app:monthly_assignment_display', kwargs={'year': today.year, 'month': today.month})
+
+class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
+    template_name = 'monthly_assignment_bulk_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        year = self.kwargs.get('year')
+        month = self.kwargs.get('month')
+        context['month_name'] = calendar.month_name[month]
+        context['year'] = year
+        context['view_date'] = datetime.date(year, month, 1) # For navigation
+
+        context['tasks'] = MonthlyTask.objects.all().order_by('name')
+        context['staff_members'] = User.objects.filter(is_active=True).order_by('first_name')
+
+        # Pre-fill with existing assignments for the month
+        _, last_day = calendar.monthrange(year, month)
+        month_start = datetime.date(year, month, 1)
+        month_end = datetime.date(year, month, last_day)
+        existing = MonthlyAssignment.objects.filter(start_date=month_start, end_date=month_end)
+        context['assignments_map'] = { assign.task_id: assign.staff for assign in existing }
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        year = self.kwargs.get('year')
+        month = self.kwargs.get('month')
+        _, last_day = calendar.monthrange(year, month)
+        month_start = datetime.date(year, month, 1)
+        month_end = datetime.date(year, month, last_day)
+
+        MonthlyAssignment.objects.filter(start_date=month_start, end_date=month_end).delete()
+
+        for key, staff_id in request.POST.items():
+            if key.startswith('task_') and staff_id:
+                task_id = key.split('_')[1]
+                MonthlyAssignment.objects.create(
+                    task_id=task_id,
+                    staff_id=staff_id,
+                    start_date=month_start,
+                    end_date=month_end,
+                    year=year, # Adding year/month fields back for easier querying if needed
+                    month=month
+                )
+
+        messages.success(request, f"Monthly assignments for {calendar.month_name[month]} {year} saved.")
+        return redirect('main_app:monthly_assignment_display', year=year, month=month)
+
 class MonthlyAssignmentCreateView(LoginRequiredMixin, ManagerRequiredMixin, CreateView):
     model = MonthlyAssignment
     form_class = MonthlyAssignmentForm

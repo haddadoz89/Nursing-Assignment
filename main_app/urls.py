@@ -35,4 +35,10 @@ urlpatterns = [
     path('checklist/', views.ChecklistView.as_view(), name='checklist'),
     path('manager-review/', views.ManagerReviewView.as_view(), name='manager_review'),
     path('appraisal/', views.AppraisalAnalyticsView.as_view(), name='appraisal_analytics'),
+    path('staff/', views.StaffListView.as_view(), name='staff_list'),
+    path('staff/<int:pk>/', views.StaffDetailView.as_view(), name='staff_detail'),
+    path('staff/<int:pk>/edit/', views.StaffUpdateView.as_view(), name='staff_edit'),
+    path('monthly-assignments/<int:year>/<int:month>/', views.MonthlyAssignmentDisplayView.as_view(), name='monthly_assignment_display'),
+    path('monthly-assignments/bulk-assign/<int:year>/<int:month>/', views.MonthlyAssignmentBulkAssignView.as_view(), name='monthly_assignment_bulk_assign'),
+    path('monthly-assignments/today/', views.MonthlyAssignmentTodayRedirectView.as_view(), name='monthly_assignment_today'),
 ]

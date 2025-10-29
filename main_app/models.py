@@ -127,13 +127,34 @@ class MonthlyTask(models.Model):
         return self.name
 
 class MonthlyAssignment(models.Model):
-    """Links a staff member to a monthly task for a specific DATE RANGE."""
     staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='monthly_assignments')
-    status = models.CharField(max_length=15, choices=AssignmentStatus.choices, default=AssignmentStatus.PENDING)
     task = models.ForeignKey(MonthlyTask, on_delete=models.CASCADE, related_name='assignments')
     start_date = models.DateField()
     end_date = models.DateField()
+    
+    group = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        help_text="e.g., Group 1, Group 2, Clinic"
+    )
+    committee = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        help_text="e.g., Medical Equipment, Emergency, Health Promotion"
+    )
+
     notes = models.TextField(blank=True, help_text="Explain why this assignment is split, if applicable.")
 
+    class Meta:
+        ordering = ['group', 'task__name', 'start_date'] 
+
     def __str__(self):
-        return f"{self.staff.get_full_name()} - {self.task.name} ({self.start_date} to {self.end_date})"
+        details = f"{self.staff.get_full_name()} - {self.task.name}"
+        if self.group:
+            details += f" ({self.group})"
+        if self.committee:
+            details += f" [{self.committee}]"
+        details += f" ({self.start_date} to {self.end_date})"
+        return details

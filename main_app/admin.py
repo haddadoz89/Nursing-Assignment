@@ -25,9 +25,9 @@ class RotationAdmin(admin.ModelAdmin):
     list_display = ('name', 'length_in_days')
 
 class MonthlyAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('staff', 'task', 'start_date', 'end_date')
-    list_filter = ('staff', 'task', 'start_date')
-    search_fields = ('staff__first_name', 'staff__last_name', 'task__name')
+    list_display = ('staff', 'task', 'group', 'committee', 'start_date', 'end_date')
+    list_filter = ('group', 'committee', 'staff', 'task', 'start_date')
+    search_fields = ('staff__first_name', 'staff__last_name', 'task__name', 'group', 'committee')
 
 # Register your models here
 admin.site.register(User, CustomUserAdmin)

@@ -13,24 +13,6 @@
       class="btn btn-outline-secondary">Next &raquo;</a>
   </div>
 </div>
-{% if monthly_assignments %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h4 class="mb-0">Monthly Responsibilities</h4>
-        </div>
-        <ul class="list-group list-group-flush">
-            {% for assignment in monthly_assignments %}
-                <li class="list-group-item">
-                    <strong>{{ assignment.task.name }}:</strong> 
-                    {{ assignment.staff.get_full_name }} 
-                    <span class="text-muted">
-                        ({{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j" }})
-                    </span>
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
-{% endif %}
 
 {% if request.user.role == 'MANAGER' %}
 <div class="mb-3">
@@ -58,9 +40,11 @@
       <tr>
         <td class="fw-bold">
           {% if request.user.role == 'MANAGER' %}
-          <a href="{% url 'main_app:create_shift_for_staff' row.staff.id %}" class="text-decoration-none">{{row.staff.get_full_name }}</a>
+          <a href="{% url 'main_app:create_shift_for_staff' row.staff.id %}"
+            class="text-decoration-none">{{row.staff.get_full_name }}</a>
           &nbsp; | &nbsp;
-          <a href="{% url 'main_app:staff_analytics' row.staff.id year month %}" class="text-decoration-none">View Analytics</a>
+          <a href="{% url 'main_app:staff_analytics' row.staff.id year month %}" class="text-decoration-none">View
+            Analytics</a>
           {% else %}
           {{ row.staff.get_full_name }}
           {% endif %}

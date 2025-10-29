@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load roster_extras %} {# Ensure your custom filter is loaded if needed later #}
+
+{% block title %}Monthly Assignments - {{ month_name }} {{ year }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Monthly Assignments for {{ month_name }} {{ year }}</h2>
+  <div>
+    <a href="{% url 'main_app:monthly_assignment_bulk_assign' year month %}" class="btn btn-success me-2">Bulk Assign this Month</a>
+    <div class="btn-group">
+      <a href="{% url 'main_app:monthly_assignment_display' previous_month.year previous_month.month %}"
+        class="btn btn-outline-secondary">&laquo; Previous</a>
+      <a href="{% url 'main_app:monthly_assignment_display' next_month.year next_month.month %}"
+        class="btn btn-outline-secondary">Next &raquo;</a>
+    </div>
+  </div>
+</div>
+
+{% if monthlyassignments %}
+<div class="card mb-4">
+  <ul class="list-group list-group-flush">
+    {% regroup monthlyassignments by task as assignments_by_task %}
+    {% for task_group in assignments_by_task %}
+    <li class="list-group-item">
+      <strong>{{ task_group.grouper.name }}:</strong>
+      <ul class="list-unstyled ms-3 mb-0">
+        {% for assignment in task_group.list %}
+        <li>
+          {{ assignment.staff.get_full_name }}
+          {% if assignment.committee %}<span class="badge bg-info text-dark ms-1">{{ assignment.committee }}</span>{% endif %}
+          {% if assignment.group %}<span class="badge bg-light text-dark ms-1">{{ assignment.group }}</span>{% endif %}
+          <span class="text-muted small">
+            ({{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j" }})
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<div class="alert alert-info">No monthly assignments found for this month.</div>
+{% endif %} {# This closes the 'if monthly_assignments' block #}
+
+{% endblock %}

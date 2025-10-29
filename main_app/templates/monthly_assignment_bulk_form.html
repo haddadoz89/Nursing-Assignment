@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Bulk Assign Monthly Tasks - {{ month_name }} {{ year }}{% endblock %}
+
+{% block content %}
+    <h2>Bulk Assign Monthly Tasks for {{ month_name }} {{ year }}</h2>
+    <p>Select one staff member for each task for the entire month.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Monthly Task</th>
+                    <th>Assigned Staff Member</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td class="fw-bold">{{ task.name }}</td>
+                    <td>
+                        <select name="task_{{ task.id }}" class="form-select form-select-sm">
+                            <option value="">---------</option>
+                            {% for staff in staff_members %}
+                                <option value="{{ staff.id }}" {% if assignments_map|get_item:task.id == staff %}selected{% endif %}>
+                                    {{ staff.get_full_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary mt-3">Save Assignments for {{ month_name }}</button>
+        <a href="{% url 'main_app:monthly_assignment_display' year month %}" class="btn btn-secondary mt-3">Cancel</a>
+    </form>
+{% endblock %}

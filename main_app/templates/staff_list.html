@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Index{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Staff Index</h2>
+        <a href="{% url 'main_app:create_user' %}" class="btn btn-primary">+ Add New Staff</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Username</th>
+                    <th>Phone Number</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in staff_members %}
+                <tr>
+                    <td>{{ staff.get_full_name }}</td>
+                    <td>{{ staff.get_role_display }}</td>
+                    <td>{{ staff.username }}</td>
+                    <td>{{ staff.phone_number }}</td>
+                    <td>{% if staff.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+                    <td>
+                        <a href="{% url 'main_app:staff_detail' staff.pk %}" class="btn btn-sm btn-info">View Details</a>
+                        <a href="{% url 'main_app:staff_edit' staff.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">No staff members found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

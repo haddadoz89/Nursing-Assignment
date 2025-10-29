@@ -4,6 +4,12 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from .models import Shift, User, Rotation, MonthlyAssignment
 
+class StaffUpdateForm(forms.ModelForm):
+    class Meta:
+        model = User
+        # Fields a manager can edit
+        fields = ['username', 'first_name', 'last_name', 'phone_number', 'employee_id', 'role', 'is_active']
+        
 class ShiftForm(forms.ModelForm):
     class Meta:
         model = Shift
@@ -46,7 +52,7 @@ class ProfileUpdateForm(forms.ModelForm):
 class MonthlyAssignmentForm(forms.ModelForm):
     class Meta:
         model = MonthlyAssignment
-        fields = ['staff', 'task', 'start_date', 'end_date', 'status', 'notes']
+        fields = ['staff', 'task', 'group', 'committee', 'start_date', 'end_date', 'notes']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),

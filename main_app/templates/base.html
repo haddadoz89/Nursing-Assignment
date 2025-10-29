@@ -25,8 +25,10 @@
           <a class="nav-link" href="{% url 'main_app:checklist' %}">Daily Checklist</a>
           {% if request.user.role == 'MANAGER' %}
           <a class="nav-link" href="{% url 'main_app:daily_assign_redirect' %}">Daily Assignment Page</a>
+          <a class="nav-link" href="{% url 'main_app:monthly_assignment_today' %}">View Monthly Tasks</a>
           <a class="nav-link" href="{% url 'main_app:monthly_assignment_list' %}">Manage Monthly Tasks</a>
           <a class="nav-link" href="{% url 'main_app:bulk_assign' %}">Bulk Assign</a>
+          <a class="nav-link" href="{% url 'main_app:staff_list' %}">Manage Staff</a>
           <a class="nav-link" href="{% url 'main_app:manager_review' %}">Manager Review</a>
           <a class="nav-link" href="{% url 'main_app:appraisal_analytics' %}">Appraisal Analytics</a>
           {% endif %}
