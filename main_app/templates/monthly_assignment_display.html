@@ -17,31 +17,34 @@
   </div>
 </div>
 
-{% if monthlyassignments %}
-<div class="card mb-4">
-  <ul class="list-group list-group-flush">
-    {% regroup monthlyassignments by task as assignments_by_task %}
-    {% for task_group in assignments_by_task %}
-    <li class="list-group-item">
-      <strong>{{ task_group.grouper.name }}:</strong>
-      <ul class="list-unstyled ms-3 mb-0">
-        {% for assignment in task_group.list %}
-        <li>
-          {{ assignment.staff.get_full_name }}
-          {% if assignment.committee %}<span class="badge bg-info text-dark ms-1">{{ assignment.committee }}</span>{% endif %}
-          {% if assignment.group %}<span class="badge bg-light text-dark ms-1">{{ assignment.group }}</span>{% endif %}
-          <span class="text-muted small">
-            ({{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j" }})
-          </span>
-        </li>
-        {% endfor %}
-      </ul>
-    </li>
-    {% endfor %}
-  </ul>
-</div>
-{% else %}
-<div class="alert alert-info">No monthly assignments found for this month.</div>
-{% endif %} {# This closes the 'if monthly_assignments' block #}
+{% if monthly_assignments %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">Monthly Responsibilities</h4>
+        </div>
+        <ul class="list-group list-group-flush">
+            {% regroup monthly_assignments by task as assignments_by_task %}
+            {% for task_group in assignments_by_task %}
+                <li class="list-group-item">
+                    <strong>{{ task_group.grouper.name }}:</strong>
+                    <ul class="list-unstyled ms-3 mb-0">
+                        {% for assignment in task_group.list %}
+                            <li>
+                                {{ assignment.staff.get_full_name }}
+                                {# Access committee name via relationship #}
+                                {% if assignment.committee %}<span class="badge bg-info text-dark ms-1">{{ assignment.committee.name }}</span>{% endif %}
+                                {# Access group name via relationship #}
+                                {% if assignment.group %}<span class="badge bg-light text-dark ms-1">{{ assignment.group.name }}</span>{% endif %}
+                                <span class="text-muted small">
+                                    ({{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j" }})
+                                </span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
 
 {% endblock %}

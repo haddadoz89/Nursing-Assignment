@@ -8,7 +8,7 @@ class StaffUpdateForm(forms.ModelForm):
     class Meta:
         model = User
         # Fields a manager can edit
-        fields = ['username', 'first_name', 'last_name', 'phone_number', 'employee_id', 'role', 'is_active']
+        fields = ['username', 'first_name', 'last_name', 'phone_number', 'employee_id', 'role', 'assignment_group', 'is_active']
         
 class ShiftForm(forms.ModelForm):
     class Meta:
@@ -52,7 +52,7 @@ class ProfileUpdateForm(forms.ModelForm):
 class MonthlyAssignmentForm(forms.ModelForm):
     class Meta:
         model = MonthlyAssignment
-        fields = ['staff', 'task', 'group', 'committee', 'start_date', 'end_date', 'notes']
+        fields = ['staff', 'task', 'start_date', 'end_date', 'notes']
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
@@ -66,3 +66,6 @@ class AppraisalFilterForm(forms.Form):
     )
     start_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=True)
     end_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=True)
+
+class MonthlyTaskBulkAssignForm(forms.Form):
+    pass

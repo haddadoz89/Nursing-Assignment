@@ -9,7 +9,8 @@
 </div>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Monthly Assignments for {{ month_name }} {{ year }}</h2>
-    <div> <a href="{% url 'main_app:monthly_assignment_bulk_assign' year month %}" class="btn btn-success me-2">Bulk Assign this Month</a>
+    <div> <a href="{% url 'main_app:monthly_assignment_bulk_assign' year month %}" class="btn btn-success me-2">Bulk
+            Assign this Month</a>
     </div>
 </div>
 <div class="table-responsive">
@@ -27,21 +28,26 @@
         <tbody>
             {% regroup assignments by group as assignments_by_group %}
             {% for group in assignments_by_group %}
-                {% for assignment in group.list %}
-                <tr>
-                    {% if forloop.first %}
-                        <td rowspan="{{ group.list|length }}" class="align-middle fw-bold">{{ group.grouper|default:"N/A" }}</td>
-                    {% endif %}
-                    <td>{{ assignment.task.name }}</td>
-                    <td>{{ assignment.staff.get_full_name }}</td>
-                    <td>{{ assignment.committee|default:"-" }}</td>
-                    <td>{{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j, Y" }}</td>
-                    <td>
-                        <a href="{% url 'main_app:monthly_assignment_edit' assignment.pk %}" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="{% url 'main_app:monthly_assignment_delete' assignment.pk %}" class="btn btn-sm btn-danger">Delete</a>
-                    </td>
-                </tr>
-                {% endfor %}
+            {% for assignment in group.list %}
+            <tr>
+                {% if forloop.first %}
+                {# Display the group name, or "N/A" if no group is assigned #}
+                <td rowspan="{{ group.list|length }}" class="align-middle fw-bold">{{ group.grouper.name|default:"N/A"
+                    }}</td>
+                {% endif %}
+                <td>{{ assignment.task.name }}</td>
+                <td>{{ assignment.staff.get_full_name }}</td>
+                {# Display the committee name, or a dash if none is assigned #}
+                <td>{{ assignment.committee.name|default:"-" }}</td>
+                <td>{{ assignment.start_date|date:"M j" }} - {{ assignment.end_date|date:"M j, Y" }}</td>
+                <td>
+                    <a href="{% url 'main_app:monthly_assignment_edit' assignment.pk %}"
+                        class="btn btn-sm btn-warning">Edit</a>
+                    <a href="{% url 'main_app:monthly_assignment_delete' assignment.pk %}"
+                        class="btn btn-sm btn-danger">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
             {% empty %}
             <tr>
                 <td colspan="6" class="text-center">No monthly assignments found.</td>

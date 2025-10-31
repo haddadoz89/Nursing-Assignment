@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 import json
 from django.views.generic import (
     ListView,
@@ -14,6 +15,9 @@ from django.views.generic import (
 )
 from django.urls import reverse_lazy, reverse
 from .models import (
+    AssignmentGroup,
+    AssignmentStatus,
+    Committee,
     User,
     Shift,
     ShiftType,
@@ -33,6 +37,7 @@ from .forms import (
     MonthlyAssignmentForm,
     AppraisalFilterForm,
     StaffUpdateForm,
+    MonthlyTaskBulkAssignForm,
 )
 from django.urls import reverse_lazy
 from dateutil.relativedelta import relativedelta
@@ -619,20 +624,37 @@ class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, 
         context = super().get_context_data(**kwargs)
         year = self.kwargs.get('year')
         month = self.kwargs.get('month')
-        context['month_name'] = calendar.month_name[month]
-        context['year'] = year
-        context['view_date'] = datetime.date(year, month, 1) # For navigation
-
-        context['tasks'] = MonthlyTask.objects.all().order_by('name')
-        context['staff_members'] = User.objects.filter(is_active=True).order_by('first_name')
-
-        # Pre-fill with existing assignments for the month
         _, last_day = calendar.monthrange(year, month)
         month_start = datetime.date(year, month, 1)
         month_end = datetime.date(year, month, last_day)
-        existing = MonthlyAssignment.objects.filter(start_date=month_start, end_date=month_end)
-        context['assignments_map'] = { assign.task_id: assign.staff for assign in existing }
 
+        context['view_date'] = month_start
+        context['month_name'] = calendar.month_name[month]
+        context['year'] = year
+        
+        # Get all groups and the staff in them
+        groups = AssignmentGroup.objects.prefetch_related('staff_members').order_by('name')
+        
+        # --- Get data for the form dropdowns ---
+        context['all_tasks'] = MonthlyTask.objects.all().order_by('name')
+        context['all_committees'] = Committee.objects.all().order_by('name')
+        
+        # --- Pre-fill data ---
+        existing_assignments = MonthlyAssignment.objects.filter(
+            start_date=month_start, end_date=month_end
+        ).select_related('task', 'committee')
+        
+        # Create a nested map for easy lookup: {staff_id: {task: task, committee: committee}}
+        assignment_map = {}
+        for assign in existing_assignments:
+            if assign.staff_id not in assignment_map:
+                assignment_map[assign.staff_id] = {'tasks': [], 'committees': []}
+            assignment_map[assign.staff_id]['tasks'].append(assign.task_id)
+            if assign.committee_id:
+                assignment_map[assign.staff_id]['committees'].append(assign.committee_id)
+        
+        context['assignment_map'] = assignment_map
+        context['groups'] = groups
         return context
 
     def post(self, request, *args, **kwargs):
@@ -644,18 +666,39 @@ class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, 
 
         MonthlyAssignment.objects.filter(start_date=month_start, end_date=month_end).delete()
 
-        for key, staff_id in request.POST.items():
-            if key.startswith('task_') and staff_id:
-                task_id = key.split('_')[1]
+        all_staff = User.objects.filter(is_active=True)
+        for staff in all_staff:
+            task_ids = request.POST.getlist(f'tasks_{staff.id}')
+            committee_ids = request.POST.getlist(f'committees_{staff.id}')
+
+            group_id = request.POST.get(f'group_{staff.id}')
+
+            if not task_ids and not committee_ids:
+                continue
+
+            if not task_ids: # If only committee is assigned
                 MonthlyAssignment.objects.create(
-                    task_id=task_id,
-                    staff_id=staff_id,
+                    staff=staff,
+                    task=None, # Or a default "General" task
                     start_date=month_start,
                     end_date=month_end,
-                    year=year, # Adding year/month fields back for easier querying if needed
-                    month=month
+                    group_id=group_id if group_id else None,
+                    committee_id=committee_ids[0] if committee_ids else None
                 )
-
+            else:
+                # Create an assignment for EACH task selected
+                for task_id in task_ids:
+                    MonthlyAssignment.objects.create(
+                        staff=staff,
+                        task_id=task_id,
+                        start_date=month_start,
+                        end_date=month_end,
+                        group_id=group_id if group_id else None,
+                        # This assumes all selected tasks apply to the first selected committee
+                        committee_id=committee_ids[0] if committee_ids else None,
+                        status=AssignmentStatus.PENDING
+                    )
+        
         messages.success(request, f"Monthly assignments for {calendar.month_name[month]} {year} saved.")
         return redirect('main_app:monthly_assignment_display', year=year, month=month)
 

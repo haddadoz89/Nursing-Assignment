@@ -39,6 +39,14 @@ class User(AbstractUser):
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
 
+    assignment_group = models.ForeignKey(
+        'AssignmentGroup', 
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="staff_members"
+    )
+
     @property
     def full_email(self):
         return f"{self.username}@phc.gov.bh"
@@ -120,30 +128,44 @@ class RotationDay(models.Model):
         return f"Day {self.day_number}: {self.shift_type.name}"
 
 class MonthlyTask(models.Model):
-    """A type of task that is assigned monthly, e.g., 'Inventory Check'."""
     name = models.CharField(max_length=200, unique=True)
 
     def __str__(self):
         return self.name
+class AssignmentGroup(models.Model):
+    name = models.CharField(max_length=50, unique=True, help_text="e.g., Group 1, Clinic Team")
+
+    def __str__(self):
+        return self.name
+
+class Committee(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="e.g., Medical Equipment, Health Promotion")
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name_plural = "Committees" # Fix plural name
 
 class MonthlyAssignment(models.Model):
     staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='monthly_assignments')
     task = models.ForeignKey(MonthlyTask, on_delete=models.CASCADE, related_name='assignments')
     start_date = models.DateField()
     end_date = models.DateField()
-    
-    group = models.CharField(
-        max_length=50, 
+
+    group = models.ForeignKey(
+        AssignmentGroup, 
+        on_delete=models.SET_NULL,
         blank=True, 
-        null=True, 
-        help_text="e.g., Group 1, Group 2, Clinic"
+        null=True
     )
-    committee = models.CharField(
-        max_length=100, 
+    committee = models.ForeignKey(
+        Committee, 
+        on_delete=models.SET_NULL,
         blank=True, 
-        null=True, 
-        help_text="e.g., Medical Equipment, Emergency, Health Promotion"
+        null=True
     )
+    status = models.CharField(max_length=15, choices=AssignmentStatus.choices, default=AssignmentStatus.PENDING)
 
     notes = models.TextField(blank=True, help_text="Explain why this assignment is split, if applicable.")
 
