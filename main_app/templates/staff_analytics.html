@@ -69,8 +69,8 @@
         <div class="card">
             <div class="card-header">Clinics</div>
             <ul class="list-group list-group-flush">
-                {% for name, count in clinic_counts.items %}<li class="list-group-item">{{ name }}: {{ count }}</li>{%
-                empty %}<li class="list-group-item">None</li>{% endfor %}
+                {% for name, count in clinic_counts.items %}<li class="list-group-item">{{ name }}: {{ count }}</li>
+                {% empty %}<li class="list-group-item">None</li>{% endfor %}
             </ul>
         </div>
     </div>
@@ -101,11 +101,12 @@
             <td>{{ shift.shift_type.name }}</td>
             <td>
                 <ul class="list-unstyled mb-0">
-                    {% for item in shift.assignments.all %}<li><strong>Assignment:</strong> {{ item.name }}</li>{%
-                    endfor %}
+                    {% for item in shift.assignments.all %}<li><strong>Assignment:</strong> {{ item.name }}</li>
+                    {% endfor %}
                     {% for item in shift.sub_assignments.all %}<li><strong>Sub-Assignment:</strong> {{ item.name }}</li>
                     {% endfor %}
-                    {% for item in shift.clinics.all %}<li><strong>Clinic:</strong> {{ item.name }}</li>{% endfor %}
+                    {% for item in shift.clinics.all %}<li><strong>Clinic:</strong> {{ item.name }}</li>
+                    {% endfor %}
                     {% for item in shift.emergency_roles.all %}<li><strong>Emergency Role:</strong> {{ item.name }}</li>
                     {% endfor %}
                 </ul>
@@ -121,12 +122,12 @@
 <script>
     const ctx = document.getElementById('shiftTypeChart');
 
-    // Get data from the Django context
+
     const labels = JSON.parse('{{ chart_labels_json|escapejs }}');
     const data = JSON.parse('{{ chart_data_json|escapejs }}');
 
     new Chart(ctx, {
-        type: 'bar', // Type of chart: pie, bar, line, etc.
+        type: 'bar',
         data: {
             labels: labels,
             datasets: [{
@@ -161,7 +162,7 @@
 
 {% block extra_css %}
 <style>
-    /* Custom styles for the staff analytics page */
+    
     .card {
         margin-bottom: 1.5rem;
     }

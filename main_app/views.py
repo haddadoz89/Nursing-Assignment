@@ -37,7 +37,6 @@ from .forms import (
     MonthlyAssignmentForm,
     AppraisalFilterForm,
     StaffUpdateForm,
-    MonthlyTaskBulkAssignForm,
 )
 from django.urls import reverse_lazy
 from dateutil.relativedelta import relativedelta
@@ -139,9 +138,7 @@ class StaffListView(LoginRequiredMixin, ManagerRequiredMixin, ListView):
     context_object_name = 'staff_members'
     ordering = ['first_name']
     def get_queryset(self):
-        # Explicitly fetch all active users
-        queryset = User.objects.filter(is_active=True)
-        print(f"Found {queryset.count()} active users.") # Debug print
+        queryset = User.objects.filter(is_active=True).order_by('first_name')
         return queryset
 
 class StaffDetailView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
@@ -246,12 +243,10 @@ class DailyDetailView(LoginRequiredMixin, TemplateView):
     
         shift_types = ShiftType.objects.order_by('start_time')
 
-        # This dictionary is what your new template needs
         shifts_by_type = {}
         for shift_type in shift_types:
             shifts_in_group = all_shifts_for_day.filter(shift_type=shift_type)
             
-            # We add the group to the dictionary. The template will handle empty states.
             shifts_by_type[shift_type.name] = {
                 'nurse_shifts': shifts_in_group.filter(staff__role__in=['NURSE', 'MANAGER']),
                 'mas_shifts': shifts_in_group.filter(staff__role='MAS')
@@ -299,8 +294,6 @@ class DailyAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
             date__range=(start_date, view_date - datetime.timedelta(days=1))
         )
 
-        # 2. Create a data structure for easy lookup in JavaScript
-        # Format: { staff_id: { task_type: { task_id: 'YYYY-MM-DD' } } }
         history = {}
         for shift in recent_shifts:
             staff_id_str = str(shift.staff_id)
@@ -323,7 +316,6 @@ class DailyAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
                     str(task.id)
                 ] = shift.date.isoformat()
 
-        # 3. Pass the data to the template as a JSON string
         context["history_json"] = json.dumps(history)
 
         context["main_assignments"] = Assignment.objects.all()
@@ -439,7 +431,6 @@ class ProfileView(LoginRequiredMixin, DetailView):
     context_object_name = "profile_user"
 
     def get_object(self, queryset=None):
-        # This ensures the user can only see their own profile
         return self.request.user
 
 
@@ -450,7 +441,6 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("main_app:profile")
 
     def get_object(self, queryset=None):
-        # This ensures the user can only edit their own profile
         return self.request.user
 
 
@@ -466,7 +456,6 @@ def daily_schedule_pdf_view(request: HttpRequest, year: int, month: int, day: in
         .order_by("shift_type__start_time", "staff__first_name")
     )
 
-    # Group shifts by shift type
     shifts_by_type = {}
     for shift in shifts:
         shift_type_name = shift.shift_type.name
@@ -490,7 +479,6 @@ def daily_schedule_pdf_view(request: HttpRequest, year: int, month: int, day: in
 
     html_string = render_to_string("daily_detail.html", context)
 
-    # Create a PDF in memory
     result = BytesIO()
     pdf = pisa.pisaDocument(BytesIO(html_string.encode("UTF-8")), result)
 
@@ -513,18 +501,15 @@ class StaffAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         staff_member = self.get_object()
 
-        # Get year and month from the URL
         year = self.kwargs.get("year")
         month = self.kwargs.get("month")
         current_date = datetime.date(year, month, 1)
 
-        # Calculate previous and next months for navigation
         context["previous_month"] = current_date - relativedelta(months=1)
         context["next_month"] = current_date + relativedelta(months=1)
         context["month_name"] = calendar.month_name[month]
         context["year"] = year
 
-        # Get all shifts for this staff member for the selected month
         shifts = Shift.objects.filter(
             staff=staff_member, date__year=year, date__month=month
         ).order_by("date")
@@ -537,7 +522,6 @@ class StaffAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, DetailView):
             start_date__month=month
         ).select_related('task')
 
-        # --- Perform the Analysis ---
         shift_type_counts = Counter()
         assignment_counts = Counter()
         sub_assignment_counts = Counter()
@@ -594,7 +578,6 @@ class MonthlyAssignmentDisplayView(LoginRequiredMixin, TemplateView):
         context['month_name'] = calendar.month_name[month]
         context['year'] = year
 
-        # Date calculation for navigation and filtering
         current_date = datetime.date(year, month, 1)
         _, last_day = calendar.monthrange(year, month)
         month_start = datetime.date(year, month, 1)
@@ -602,7 +585,6 @@ class MonthlyAssignmentDisplayView(LoginRequiredMixin, TemplateView):
         context['previous_month'] = current_date - relativedelta(months=1)
         context['next_month'] = current_date + relativedelta(months=1)
 
-        # Fetch assignments for the month
         monthly_assignments = MonthlyAssignment.objects.filter(
             start_date__lte=month_end,
             end_date__gte=month_start
@@ -614,7 +596,6 @@ class MonthlyAssignmentDisplayView(LoginRequiredMixin, TemplateView):
 class MonthlyAssignmentTodayRedirectView(RedirectView):
     def get_redirect_url(self, *args, **kwargs):
         today = datetime.date.today()
-        # Redirects to the monthly_assignment_display URL for the current year/month
         return reverse_lazy('main_app:monthly_assignment_display', kwargs={'year': today.year, 'month': today.month})
 
 class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
@@ -632,19 +613,15 @@ class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, 
         context['month_name'] = calendar.month_name[month]
         context['year'] = year
         
-        # Get all groups and the staff in them
         groups = AssignmentGroup.objects.prefetch_related('staff_members').order_by('name')
         
-        # --- Get data for the form dropdowns ---
         context['all_tasks'] = MonthlyTask.objects.all().order_by('name')
         context['all_committees'] = Committee.objects.all().order_by('name')
         
-        # --- Pre-fill data ---
         existing_assignments = MonthlyAssignment.objects.filter(
             start_date=month_start, end_date=month_end
         ).select_related('task', 'committee')
         
-        # Create a nested map for easy lookup: {staff_id: {task: task, committee: committee}}
         assignment_map = {}
         for assign in existing_assignments:
             if assign.staff_id not in assignment_map:
@@ -676,17 +653,16 @@ class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, 
             if not task_ids and not committee_ids:
                 continue
 
-            if not task_ids: # If only committee is assigned
+            if not task_ids:
                 MonthlyAssignment.objects.create(
                     staff=staff,
-                    task=None, # Or a default "General" task
+                    task=None,
                     start_date=month_start,
                     end_date=month_end,
                     group_id=group_id if group_id else None,
                     committee_id=committee_ids[0] if committee_ids else None
                 )
             else:
-                # Create an assignment for EACH task selected
                 for task_id in task_ids:
                     MonthlyAssignment.objects.create(
                         staff=staff,
@@ -694,7 +670,6 @@ class MonthlyAssignmentBulkAssignView(LoginRequiredMixin, ManagerRequiredMixin, 
                         start_date=month_start,
                         end_date=month_end,
                         group_id=group_id if group_id else None,
-                        # This assumes all selected tasks apply to the first selected committee
                         committee_id=committee_ids[0] if committee_ids else None,
                         status=AssignmentStatus.PENDING
                     )
@@ -708,14 +683,12 @@ class MonthlyAssignmentCreateView(LoginRequiredMixin, ManagerRequiredMixin, Crea
     template_name = 'monthlyassignment_form.html'
     success_url = reverse_lazy('main_app:monthly_assignment_list')
 
-# 3. Update View
 class MonthlyAssignmentUpdateView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
     model = MonthlyAssignment
     form_class = MonthlyAssignmentForm
     template_name = 'monthlyassignment_form.html'
     success_url = reverse_lazy('main_app:monthly_assignment_list')
 
-# 4. Delete View
 class MonthlyAssignmentDeleteView(LoginRequiredMixin, ManagerRequiredMixin, DeleteView):
     model = MonthlyAssignment
     template_name = 'monthlyassignment_confirm_delete.html'
@@ -729,15 +702,12 @@ class ChecklistView(LoginRequiredMixin, TemplateView):
         today = datetime.date.today()
         team_leader = self.request.user
 
-        # Find if the current user is a team leader today
         leader_shifts = Shift.objects.filter(staff=team_leader, date=today, assignments__name__icontains='Team Leader')
 
-        shifts_to_assess = Shift.objects.none() # Empty queryset by default
+        shifts_to_assess = Shift.objects.none()
 
         if leader_shifts.exists():
-            # Get the shift type the user is leading (e.g., Morning)
             leader_shift_type = leader_shifts.first().shift_type
-            # Find all other staff working that same shift
             shifts_to_assess = Shift.objects.filter(
                 date=today,
                 shift_type=leader_shift_type
@@ -764,7 +734,6 @@ class ManagerReviewView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Get the date from the URL query parameter, if it exists
         date_str = self.request.GET.get('date')
         view_date = None
         
@@ -782,7 +751,6 @@ class ManagerReviewView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         date_str = request.POST.get('date')
         if not date_str:
-            # Handle error if date is missing
             return redirect('main_app:manager_review')
 
         view_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -794,7 +762,6 @@ class ManagerReviewView(LoginRequiredMixin, ManagerRequiredMixin, TemplateView):
                 shift.status = value
                 shift.team_leader_notes = request.POST.get(f'notes_{shift_id}', '')
                 
-                # Check if the 'approve' checkbox was checked for this shift
                 if f'approve_{shift_id}' in request.POST:
                     shift.is_approved_by_manager = True
                 
@@ -818,7 +785,6 @@ class AppraisalAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, TemplateV
             context['selected_staff'] = staff
             context['date_range'] = (start_date, end_date)
 
-            # --- 1. Daily Shift Analysis ---
             daily_shifts = Shift.objects.filter(
                 staff=staff,
                 date__range=(start_date, end_date),
@@ -834,7 +800,6 @@ class AppraisalAnalyticsView(LoginRequiredMixin, ManagerRequiredMixin, TemplateV
             context['daily_chart_labels'] = json.dumps(list(daily_status_counts.keys()))
             context['daily_chart_data'] = json.dumps(list(daily_status_counts.values()))
 
-            # --- 2. Monthly Assignment Analysis ---
             monthly_assignments = MonthlyAssignment.objects.filter(
                 staff=staff,
                 end_date__gte=start_date,
